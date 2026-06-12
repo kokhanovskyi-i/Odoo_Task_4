@@ -43,6 +43,13 @@ class HrHospitalDoctor(models.Model):
         domain=[("is_intern", "=", False)],
     )
 
+    intern_ids = fields.One2many(
+        comodel_name="hr.hospital.doctor",
+        inverse_name="mentor_id",
+        string="Interns",
+        readonly=True,
+    )
+
     email = fields.Char(
         string="Email",
         required=True,
@@ -72,3 +79,19 @@ class HrHospitalDoctor(models.Model):
         for doctor in self:
             if doctor.mentor_id and doctor.mentor_id.is_intern:
                 raise ValidationError("Mentor cannot be an intern.")
+
+    def action_create_appointment(self):
+        self.ensure_one()
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Create Visit",
+            "res_model": "hr.hospital.appointment",
+            "view_mode": "form",
+            "target": "current",
+            "context": {
+                "default_doctor_id": self.id,
+                "default_status": "planned",
+                "default_planned_datetime": fields.Datetime.to_string(fields.Datetime.now()),
+            },
+        }
