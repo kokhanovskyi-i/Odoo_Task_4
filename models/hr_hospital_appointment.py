@@ -1,6 +1,6 @@
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -54,6 +54,11 @@ class HrHospitalAppointment(models.Model):
         string="Disease",
     )
 
+    same_disease_visit_count = fields.Integer(
+        string="Same Disease Visits",
+        compute="_compute_same_disease_visit_count",
+    )
+
     active = fields.Boolean(
         string="Active",
         default=True,
@@ -86,3 +91,34 @@ class HrHospitalAppointment(models.Model):
             raise UserError("You cannot delete completed visits.")
 
         return super().unlink()
+
+    @api.depends("disease_id")
+    def _compute_same_disease_visit_count(self):
+        for appointment in self:
+            if appointment.disease_id:
+                appointment.same_disease_visit_count = self.search_count([
+                    ("disease_id", "=", appointment.disease_id.id),
+                ])
+            else:
+                appointment.same_disease_visit_count = 0
+
+    def action_view_same_disease_visits(self):
+        self.ensure_one()
+
+        domain = [("id", "=", False)]
+        context = {}
+
+        if self.disease_id:
+            domain = [("disease_id", "=", self.disease_id.id)]
+            context = {
+                "default_disease_id": self.disease_id.id,
+            }
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Visits With Same Disease",
+            "res_model": "hr.hospital.appointment",
+            "view_mode": "list,form",
+            "domain": domain,
+            "context": context,
+        }
